@@ -24,8 +24,13 @@ inputs:
     default: '20'
   
   claude-api-key:
-    description: 'Anthropic Claude API key for security analysis'
-    required: true
+    description: 'Anthropic Claude API key for security analysis. Optional if claude-code-oauth-token is set.'
+    required: false
+    default: ''
+
+  claude-code-oauth-token:
+    description: 'Claude Code OAuth token (from `claude setup-token`) to authenticate the security scan against a Claude subscription instead of API billing. An alternative to claude-api-key. Minim-Digital fork addition.'
+    required: false
     default: ''
 
   claude-model:
@@ -182,6 +187,9 @@ runs:
         GITHUB_REPOSITORY: ${{ github.repository }}
         PR_NUMBER: ${{ github.event.pull_request.number }}
         ANTHROPIC_API_KEY: ${{ inputs.claude-api-key }}
+        # Fork addition: the `claude` CLI uses this when ANTHROPIC_API_KEY is
+        # empty, billing the scan to a Claude subscription instead of the API.
+        CLAUDE_CODE_OAUTH_TOKEN: ${{ inputs.claude-code-oauth-token }}
         ENABLE_CLAUDE_FILTERING: 'true' 
         EXCLUDE_DIRECTORIES: ${{ inputs.exclude-directories }}
         FALSE_POSITIVE_FILTERING_INSTRUCTIONS: ${{ inputs.false-positive-filtering-instructions }}
@@ -203,13 +211,11 @@ runs:
           exit 0
         fi
         
-        # Validate API key is provided
-        if [ -z "$ANTHROPIC_API_KEY" ]; then
-          echo "::error::ANTHROPIC_API_KEY is not set. Please provide the claude-api-key input to the action."
-          echo "Example usage:"
-          echo "  - uses: anthropics/claude-code-security-reviewer@main"
-          echo "    with:"
-          echo "      claude-api-key: \$\{{ secrets.ANTHROPIC_API_KEY }}"
+        # Validate that a credential is provided (fork: either an API key or a
+        # subscription OAuth token). The `claude` CLI prefers ANTHROPIC_API_KEY
+        # when both are set and non-empty.
+        if [ -z "$ANTHROPIC_API_KEY" ] && [ -z "$CLAUDE_CODE_OAUTH_TOKEN" ]; then
+          echo "::error::No Claude credential set. Provide claude-api-key or claude-code-oauth-token."
           exit 1
         fi
                 
