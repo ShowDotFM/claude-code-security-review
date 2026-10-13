@@ -23,6 +23,7 @@ from claudecode.constants import (
     DEFAULT_CLAUDE_MODEL,
     EXIT_SUCCESS,
     EXIT_GENERAL_ERROR,
+    OAUTH_TOKEN_PREFIX,
     SUBPROCESS_TIMEOUT
 )
 from claudecode.logger import get_logger
@@ -330,6 +331,15 @@ class SimpleClaudeRunner:
                 oauth_token = os.environ.get('CLAUDE_CODE_OAUTH_TOKEN', '')
                 if not api_key and not oauth_token:
                     return False, "Neither ANTHROPIC_API_KEY nor CLAUDE_CODE_OAUTH_TOKEN is set"
+                # Fork: an API key pasted into the OAuth slot still
+                # authenticates, but bills the API instead of the subscription
+                # (2026-10-07, $83 on a card). Only accept real OAuth tokens.
+                if oauth_token and not oauth_token.startswith(OAUTH_TOKEN_PREFIX):
+                    return False, (
+                        f"CLAUDE_CODE_OAUTH_TOKEN does not start with {OAUTH_TOKEN_PREFIX}, so it is "
+                        "not a subscription OAuth token (an API key here bills the API). "
+                        "Generate one with `claude setup-token`."
+                    )
                 return True, ""
             else:
                 error_msg = f"Claude Code returned exit code {result.returncode}"

@@ -86,7 +86,28 @@ class TestSimpleClaudeRunner:
         
         assert success is True
         assert error == ''
-    
+
+    @patch('subprocess.run')
+    def test_validate_claude_available_api_key_in_oauth_slot(self, mock_run):
+        """Fork: an API key passed as the OAuth token is rejected, since it would bill the API."""
+        mock_run.return_value = Mock(
+            returncode=0,
+            stdout='claude version 1.0.0',
+            stderr=''
+        )
+
+        env = os.environ.copy()
+        env.pop('ANTHROPIC_API_KEY', None)
+        env['CLAUDE_CODE_OAUTH_TOKEN'] = 'sk-ant-api03-test'
+
+        with patch.dict(os.environ, env, clear=True):
+            runner = SimpleClaudeRunner()
+            success, error = runner.validate_claude_available()
+
+        assert success is False
+        assert 'does not start with sk-ant-oat' in error
+        assert 'sk-ant-api03-test' not in error
+
     @patch('subprocess.run')
     def test_validate_claude_available_not_installed(self, mock_run):
         """Test Claude validation when not installed."""

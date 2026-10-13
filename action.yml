@@ -29,7 +29,7 @@ inputs:
     default: ''
 
   claude-code-oauth-token:
-    description: 'Claude Code OAuth token (from `claude setup-token`) to authenticate the security scan against a Claude subscription instead of API billing. An alternative to claude-api-key. Minim-Digital fork addition.'
+    description: 'Claude Code OAuth token (from `claude setup-token`; must start with sk-ant-oat, an API key is rejected) to authenticate the security scan against a Claude subscription instead of API billing. An alternative to claude-api-key. Minim-Digital fork addition.'
     required: false
     default: ''
 
@@ -218,7 +218,21 @@ runs:
           echo "::error::No Claude credential set. Provide claude-api-key or claude-code-oauth-token."
           exit 1
         fi
-                
+
+        # Fork: refuse anything in the OAuth slot that is not a subscription
+        # OAuth token. An API key pasted there still authenticates, but bills
+        # the API instead of the subscription (2026-10-07). Only the prefix is
+        # checked; the value is never printed.
+        if [ -n "$CLAUDE_CODE_OAUTH_TOKEN" ] && [[ "$CLAUDE_CODE_OAUTH_TOKEN" != sk-ant-oat* ]]; then
+          echo "::error::claude-code-oauth-token is not a subscription OAuth token (it must start with sk-ant-oat; an API key here bills the API). Generate one with \`claude setup-token\` and update the secret."
+          exit 1
+        fi
+        if [ -n "$ANTHROPIC_API_KEY" ]; then
+          echo "Claude credential: API key (billed to the Claude API)"
+        else
+          echo "Claude credential: subscription OAuth token"
+        fi
+
         # Set timeout
         export CLAUDE_TIMEOUT="$CLAUDECODE_TIMEOUT"
         
